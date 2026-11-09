@@ -2,7 +2,24 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { loadAll, persistAll, uid } from '../services/storage';
 import { todayISO, minutesUntil } from '../utils/dateUtils';
 import { reminderOffsetMinutes } from '../utils/reminderUtils';
-import { createTask, deleteTask as deleteTaskApi, fromApiTask, getTasks, updateTask as updateTaskApi, updateTaskStatus } from '../services/api';
+import {
+  createAppointment as createAppointmentApi,
+  createEvent as createEventApi,
+  createTask,
+  deleteAppointment as deleteAppointmentApi,
+  deleteEvent as deleteEventApi,
+  deleteTask as deleteTaskApi,
+  fromApiAppointment,
+  fromApiEvent,
+  fromApiTask,
+  getAppointments,
+  getEvents,
+  getTasks,
+  updateAppointment as updateAppointmentApi,
+  updateEvent as updateEventApi,
+  updateTask as updateTaskApi,
+  updateTaskStatus,
+} from '../services/api';
 
 const AppContext = createContext(null);
 export function useApp() {
@@ -22,16 +39,25 @@ export function AppProvider({ children }) {
   const [globalSearch, setGlobalSearch] = useState('');
   const seenKeys = useRef(new Set());
   const [backendConnected, setBackendConnected] = useState(false);
+  const eventsRef = useRef(initial.events);
+  const tasksRef = useRef(initial.tasks);
+  const appointmentsRef = useRef(initial.appointments);
 
   useEffect(() => {
     let active = true;
-    getTasks()
-      .then((data) => {
+    Promise.all([getTasks(), getEvents(), getAppointments()])
+      .then(([taskData, eventData, appointmentData]) => {
         if (!active) return;
         setBackendConnected(true);
-        // Don't wipe the local demo task list if backend is empty.
-        if (Array.isArray(data) && data.length > 0) {
-          setTasks(data.map(fromApiTask));
+        // Don't wipe the local demo data if the backend is empty.
+        if (Array.isArray(taskData) && taskData.length > 0) {
+          setTasks(taskData.map(fromApiTask));
+        }
+        if (Array.isArray(eventData) && eventData.length > 0) {
+          setEvents(eventData.map(fromApiEvent));
+        }
+        if (Array.isArray(appointmentData) && appointmentData.length > 0) {
+          setAppointments(appointmentData.map(fromApiAppointment));
         }
       })
       .catch(() => {
@@ -39,6 +65,10 @@ export function AppProvider({ children }) {
       });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => { eventsRef.current = events; }, [events]);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useEffect(() => { appointmentsRef.current = appointments; }, [appointments]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -62,15 +92,25 @@ export function AppProvider({ children }) {
 
   // ---- CRUD ----
   const addEvent = useCallback((data) => {
-    const ev = { id: uid('ev'), status: 'Scheduled', ...data };
+    const ev = { id: uid('ev'), status: 'Scheduled', createdAt: new Date().toISOString(), ...data };
     setEvents((p) => [...p, ev]);
+    createEventApi(ev)
+      .then((saved) => setEvents((p) => p.map((item) => (item.id === ev.id ? fromApiEvent(saved) : item))))
+      .catch(() => {});
     return ev;
   }, []);
   const updateEvent = useCallback((id, patch) => {
-    setEvents((p) => p.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+    const existing = eventsRef.current.find((e) => e.id === id);
+    if (!existing) return;
+    const next = { ...existing, ...patch };
+    setEvents((p) => p.map((e) => (e.id === id ? next : e)));
+    updateEventApi(id, next)
+      .then((saved) => setEvents((p) => p.map((e) => (e.id === id ? fromApiEvent(saved) : e))))
+      .catch(() => {});
   }, []);
   const deleteEvent = useCallback((id) => {
     setEvents((p) => p.filter((e) => e.id !== id));
+    deleteEventApi(id).catch(() => {});
   }, []);
 
   const addTask = useCallback((data) => {
@@ -82,20 +122,15 @@ export function AppProvider({ children }) {
     return t;
   }, []);
   const updateTask = useCallback((id, patch) => {
-    let nextTask;
-    setTasks((p) =>
-      p.map((t) => {
-        if (t.id !== id) return t;
-        const next = { ...t, ...patch };
-        if (patch.status === 'Completed' && !t.completedAt) next.completedAt = new Date().toISOString();
-        if (patch.status && patch.status !== 'Completed') next.completedAt = null;
-        if (patch.status === 'Completed' && next.progress !== 100) next.progress = 100;
-        nextTask = next;
-        return next;
-      })
-    );
-    if (nextTask && typeof id === 'number') {
-      updateTaskApi(id, nextTask).then((saved) => setTasks((p) => p.map((t) => (t.id === id ? fromApiTask(saved) : t)))).catch(() => {});
+    const existing = tasksRef.current.find((t) => t.id === id);
+    if (!existing) return;
+    const next = { ...existing, ...patch };
+    if (patch.status === 'Completed' && !existing.completedAt) next.completedAt = new Date().toISOString();
+    if (patch.status && patch.status !== 'Completed') next.completedAt = null;
+    if (patch.status === 'Completed' && next.progress !== 100) next.progress = 100;
+    setTasks((p) => p.map((t) => (t.id === id ? next : t)));
+    if (typeof id === 'number') {
+      updateTaskApi(id, next).then((saved) => setTasks((p) => p.map((t) => (t.id === id ? fromApiTask(saved) : t)))).catch(() => {});
     }
   }, []);
   const deleteTask = useCallback((id) => {
@@ -121,15 +156,25 @@ export function AppProvider({ children }) {
   }, []);
 
   const addAppointment = useCallback((data) => {
-    const a = { id: uid('ap'), status: 'Scheduled', ...data };
+    const a = { id: uid('ap'), status: 'Scheduled', createdAt: new Date().toISOString(), ...data };
     setAppointments((p) => [...p, a]);
+    createAppointmentApi(a)
+      .then((saved) => setAppointments((p) => p.map((item) => (item.id === a.id ? fromApiAppointment(saved) : item))))
+      .catch(() => {});
     return a;
   }, []);
   const updateAppointment = useCallback((id, patch) => {
-    setAppointments((p) => p.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+    const existing = appointmentsRef.current.find((a) => a.id === id);
+    if (!existing) return;
+    const next = { ...existing, ...patch };
+    setAppointments((p) => p.map((a) => (a.id === id ? next : a)));
+    updateAppointmentApi(id, next)
+      .then((saved) => setAppointments((p) => p.map((a) => (a.id === id ? fromApiAppointment(saved) : a))))
+      .catch(() => {});
   }, []);
   const deleteAppointment = useCallback((id) => {
     setAppointments((p) => p.filter((a) => a.id !== id));
+    deleteAppointmentApi(id).catch(() => {});
   }, []);
 
   const markRead = useCallback((id) => {

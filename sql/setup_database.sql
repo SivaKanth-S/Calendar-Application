@@ -1,122 +1,74 @@
--- Create database
-CREATE DATABASE IF NOT EXISTS calendar_app DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE calendar_app;
+-- Creates the TaskFlow database and its tables.
+-- Run: mysql -u root < sql/setup_database.sql
+-- Seed demo dates afterwards with: mysql -u root taskflow_db < backend/database/seed.sql
 
--- Table for categories (used by tasks/events/appointments)
-CREATE TABLE IF NOT EXISTS categories (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE,
-    color VARCHAR(7) NOT NULL DEFAULT '#64748b',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+CREATE DATABASE IF NOT EXISTS taskflow_db
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
 
--- Table for priorities
-CREATE TABLE IF NOT EXISTS priorities (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(20) NOT NULL UNIQUE,
-    level INT NOT NULL DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+USE taskflow_db;
 
--- Table for task/status types
-CREATE TABLE IF NOT EXISTS task_statuses (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(20) NOT NULL UNIQUE
-);
-
--- Table for appointments statuses
-CREATE TABLE IF NOT EXISTS appointment_statuses (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(20) NOT NULL UNIQUE
-);
-
--- Table for events
-CREATE TABLE IF NOT EXISTS events (
-    id VARCHAR(36) PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    date DATE NOT NULL,
-    start_time TIME,
-    end_time TIME,
-    priority VARCHAR(20),
-    category VARCHAR(50),
-    status ENUM('Scheduled', 'Completed', 'Cancelled') DEFAULT 'Scheduled',
-    reminder VARCHAR(10) DEFAULT '30m',
-    repeat ENUM('none', 'daily', 'weekdays', 'weekly', 'biweekly', 'monthly', 'yearly', 'custom') DEFAULT 'none',
-    repeat_interval INT DEFAULT 1,
-    repeat_unit ENUM('days', 'weeks', 'months') DEFAULT 'days',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_date (date),
-    INDEX idx_status (status)
-);
-
--- Table for appointments
-CREATE TABLE IF NOT EXISTS appointments (
-    id VARCHAR(36) PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    date DATE NOT NULL,
-    start_time TIME,
-    end_time TIME,
-    priority VARCHAR(20),
-    category VARCHAR(50),
-    status ENUM('Scheduled', 'Confirmed', 'Completed', 'Cancelled') DEFAULT 'Scheduled',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_date (date),
-    INDEX idx_status (status)
-);
-
--- Table for tasks
 CREATE TABLE IF NOT EXISTS tasks (
-    id VARCHAR(36) PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    due_date DATE,
-    start_time TIME,
-    end_time TIME,
-    progress INT DEFAULT 0,
-    priority VARCHAR(20),
-    category VARCHAR(50),
-    status ENUM('Pending', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Pending',
-    completed_at TIMESTAMP NULL,
-    reminder VARCHAR(10) DEFAULT '30m',
-    repeat ENUM('none', 'daily', 'weekdays', 'weekly', 'biweekly', 'monthly', 'yearly', 'custom') DEFAULT 'none',
-    repeat_interval INT DEFAULT 1,
-    repeat_unit ENUM('days', 'weeks', 'months') DEFAULT 'days',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_due_date (due_date),
-    INDEX idx_status (status),
-    INDEX idx_priority (priority)
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  task_name VARCHAR(255) NOT NULL,
+  description TEXT NULL,
+  task_date DATE NOT NULL,
+  start_time TIME NULL,
+  end_time TIME NULL,
+  duration INT UNSIGNED NULL,
+  priority ENUM('Low', 'Medium', 'High') NOT NULL DEFAULT 'Medium',
+  category VARCHAR(100) NOT NULL DEFAULT 'Other',
+  status ENUM('Pending', 'In Progress', 'Completed', 'Cancelled') NOT NULL DEFAULT 'Pending',
+  progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  repeat_type VARCHAR(50) NOT NULL DEFAULT 'none',
+  due_date DATE NULL,
+  notes TEXT NULL,
+  reminder VARCHAR(20) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_task_date (task_date),
+  INDEX idx_task_status (status),
+  INDEX idx_task_priority (priority)
 );
 
--- Insert default categories
-INSERT IGNORE INTO categories (name, color) VALUES
-('Meeting', '#6366f1'),
-('Appointment', '#0ea5e9'),
-('Personal', '#ec4899'),
-('Study', '#f59e0b'),
-('Work', '#10b981'),
-('Other', '#8b5cf6');
+CREATE TABLE IF NOT EXISTS events (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  description TEXT NULL,
+  event_date DATE NOT NULL,
+  start_time TIME NULL,
+  end_time TIME NULL,
+  location VARCHAR(255) NULL,
+  priority ENUM('Low', 'Medium', 'High') NOT NULL DEFAULT 'Medium',
+  category VARCHAR(100) NOT NULL DEFAULT 'Other',
+  status ENUM('Scheduled', 'Completed', 'Cancelled') NOT NULL DEFAULT 'Scheduled',
+  reminder VARCHAR(20) NULL DEFAULT '30m',
+  repeat_type VARCHAR(50) NOT NULL DEFAULT 'none',
+  repeat_interval INT UNSIGNED NOT NULL DEFAULT 1,
+  repeat_unit ENUM('days', 'weeks', 'months') NOT NULL DEFAULT 'days',
+  notes TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_event_date (event_date),
+  INDEX idx_event_status (status)
+);
 
--- Insert default priorities
-INSERT IGNORE INTO priorities (name, level) VALUES
-('Low', 1),
-('Medium', 2),
-('High', 3);
-
--- Insert default task statuses
-INSERT IGNORE INTO task_statuses (name) VALUES
-('Pending'),
-('In Progress'),
-('Completed'),
-('Cancelled');
-
--- Insert default appointment statuses
-INSERT IGNORE INTO appointment_statuses (name) VALUES
-('Scheduled'),
-('Confirmed'),
-('Completed'),
-('Cancelled');
+CREATE TABLE IF NOT EXISTS appointments (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  description TEXT NULL,
+  contact VARCHAR(150) NULL,
+  location VARCHAR(255) NULL,
+  appointment_date DATE NOT NULL,
+  start_time TIME NULL,
+  end_time TIME NULL,
+  priority ENUM('Low', 'Medium', 'High') NOT NULL DEFAULT 'Medium',
+  category VARCHAR(100) NOT NULL DEFAULT 'Appointment',
+  status ENUM('Scheduled', 'Confirmed', 'Completed', 'Cancelled') NOT NULL DEFAULT 'Scheduled',
+  reminder VARCHAR(20) NULL DEFAULT '1h',
+  notes TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_appointment_date (appointment_date),
+  INDEX idx_appointment_status (status)
+);

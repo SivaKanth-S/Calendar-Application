@@ -1,13 +1,18 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { categoryColor } from '../services/storage';
+import { initials } from '../utils/userUtils';
 
 export default function Header({ onMenu, onNew, searchInputRef }) {
   const { globalSearch, setGlobalSearch, events, tasks, appointments, notifications, unreadCount, theme, setTheme } = useApp();
+  const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
   const boxRef = useRef(null);
+  const userRef = useRef(null);
   const navigate = useNavigate();
 
   const results = useMemo(() => {
@@ -24,6 +29,7 @@ export default function Header({ onMenu, onNew, searchInputRef }) {
   useEffect(() => {
     const h = (e) => {
       if (boxRef.current && !boxRef.current.contains(e.target)) { setOpen(false); setNotifOpen(false); }
+      if (userRef.current && !userRef.current.contains(e.target)) setUserOpen(false);
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -81,7 +87,34 @@ export default function Header({ onMenu, onNew, searchInputRef }) {
           )}
         </div>
         <button className="btn primary" onClick={onNew} aria-label="Add event (N)">+ Add Event</button>
-        <button className="avatar" onClick={() => navigate('/settings')} aria-label="Profile / settings" title="Profile">U</button>
+        <div className="avatar-wrap" ref={userRef}>
+          <button
+            className="avatar"
+            onClick={() => setUserOpen((value) => !value)}
+            aria-label="Account menu"
+            aria-expanded={userOpen}
+            title={user?.email || 'Account'}
+          >
+            {initials(user?.name)}
+          </button>
+          {userOpen && (
+            <div className="user-drop">
+              <div className="user-drop-head">
+                <span className="avatar user-drop-avatar">{initials(user?.name)}</span>
+                <div className="user-drop-id">
+                  <strong>{user?.name || 'Signed in'}</strong>
+                  <span>{user?.email}</span>
+                </div>
+              </div>
+              <button type="button" className="user-drop-item" onClick={() => { setUserOpen(false); navigate('/settings'); }}>
+                Settings
+              </button>
+              <button type="button" className="user-drop-item danger" onClick={logout}>
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

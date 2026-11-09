@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { todayISO, isOverdue } from '../utils/dateUtils';
+import { initials } from '../utils/userUtils';
 
 const LINKS = [
   { to: '/', label: 'Dashboard', icon: '▦', end: true, key: 'd' },
@@ -15,6 +17,7 @@ const LINKS = [
 
 export default function Sidebar({ open, onClose }) {
   const { tasks, events } = useApp();
+  const { user, logout } = useAuth();
   const t = todayISO();
   const todayCount = events.filter((e) => e.date === t).length + tasks.filter((x) => x.dueDate === t && x.status !== 'Completed' && x.status !== 'Cancelled').length;
   const overdueCount = tasks.filter((x) => isOverdue(x.dueDate, x.status)).length;
@@ -41,7 +44,18 @@ export default function Sidebar({ open, onClose }) {
           ))}
         </nav>
         <div className="sidebar-foot">
-          
+          {user && (
+            <div className="sidebar-user">
+              <span className="user-mark" aria-hidden="true">{initials(user.name)}</span>
+              <div className="sidebar-user-info">
+                <strong>{user.name}</strong>
+                <span>{user.email}</span>
+              </div>
+              <button type="button" className="icon-btn sidebar-signout" onClick={logout} aria-label="Sign out" title="Sign out">
+                ⏻
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>

@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import taskRoutes from './routes/taskRoutes.js';
+import eventRoutes from './routes/eventRoutes.js';
+import appointmentRoutes from './routes/appointmentRoutes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { pool } from './config/db.js';
 
@@ -24,6 +26,8 @@ app.get('/api/health', async (_req, res, next) => {
 });
 
 app.use('/api/tasks', taskRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/appointments', appointmentRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

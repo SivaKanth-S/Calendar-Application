@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { todayISO, formatFull, formatTime, expandOccurrences, addDays } from '../utils/dateUtils';
+import { todayISO, formatFull, formatTime, expandOccurrences, addDays, toISODate } from '../utils/dateUtils';
 import { Empty } from '../components/ui';
 
 export default function Upcoming() {
